@@ -1,76 +1,75 @@
 from src.bit_array import BitArray
 
+WORD_SIZE = 32
+MAX_BITS_INDEX = WORD_SIZE - 1
+DOUBLE_WORD_SIZE = 62
+
 class IntegerArithmetic:
-    def add_additional(self, a: BitArray, b: BitArray) -> BitArray:
-        r = BitArray()
-        c = 0
-        for i in range(31, -1, -1):
-            t = a.bits[i] + b.bits[i] + c
-            r.bits[i] = t % 2
-            c = t // 2
-        return r
+    def add_additional(self, array_a: BitArray, array_b: BitArray) -> BitArray:
+        result_array = BitArray()
+        carry_bit = 0
+        for bit_index in range(MAX_BITS_INDEX, -1, -1):
+            temp_sum = array_a.bits[bit_index] + array_b.bits[bit_index] + carry_bit
+            result_array.bits[bit_index] = temp_sum % 2
+            carry_bit = temp_sum // 2
+        return result_array
 
-    def subtract_additional(self, a: BitArray, b: BitArray) -> BitArray:
-        neg_b = BitArray()
-        for i in range(32):
-            neg_b.bits[i] = 1 - b.bits[i]
-        c = 1
-        for i in range(31, -1, -1):
-            t = neg_b.bits[i] + c
-            neg_b.bits[i] = t % 2
-            c = t // 2
-        return self.add_additional(a, neg_b)
+    def subtract_additional(self, array_a: BitArray, array_b: BitArray) -> BitArray:
+        negated_b = BitArray()
+        for bit_index in range(WORD_SIZE):
+            negated_b.bits[bit_index] = 1 - array_b.bits[bit_index]
+            
+        carry_bit = 1
+        for bit_index in range(MAX_BITS_INDEX, -1, -1):
+            temp_sum = negated_b.bits[bit_index] + carry_bit
+            negated_b.bits[bit_index] = temp_sum % 2
+            carry_bit = temp_sum // 2
+            
+        return self.add_additional(array_a, negated_b)
 
-    def multiply_direct(self, a: BitArray, b: BitArray) -> BitArray:
-        r = BitArray()
-        r.bits[0] = a.bits[0] ^ b.bits[0]
-        m_a = a.bits[1:]
-        m_b = b.bits[1:]
-        res_m = [0] * 62
-        for i in range(30, -1, -1):
-            if m_b[i] == 1:
-                c = 0
-                for j in range(30, -1, -1):
-                    idx = i + j + 1
-                    t = res_m[idx] + m_a[j] + c
-                    res_m[idx] = t % 2
-                    c = t // 2
-                res_m[i] += c
-        for i in range(31):
-            r.bits[1 + i] = res_m[31 + i]
-        return r
+    def multiply_direct(self, array_a: BitArray, array_b: BitArray) -> BitArray:
+        result_array = BitArray()
+        result_array.bits[0] = array_a.bits[0] ^ array_b.bits[0]
+        mantissa_a = array_a.bits[1:]
+        mantissa_b = array_b.bits[1:]
+        result_mantissa = [0] * DOUBLE_WORD_SIZE
+        
+        for index_b in range(MAX_BITS_INDEX - 1, -1, -1):
+            if mantissa_b[index_b] == 1:
+                carry_bit = 0
+                for index_a in range(MAX_BITS_INDEX - 1, -1, -1):
+                    target_index = index_b + index_a + 1
+                    temp_sum = result_mantissa[target_index] + mantissa_a[index_a] + carry_bit
+                    result_mantissa[target_index] = temp_sum % 2
+                    carry_bit = temp_sum // 2
+                result_mantissa[index_b] += carry_bit
+                
+        for bit_index in range(MAX_BITS_INDEX):
+            result_array.bits[1 + bit_index] = result_mantissa[MAX_BITS_INDEX + bit_index]
+            
+        return result_array
 
-    def divide_fixed(self, a: BitArray, b: BitArray) -> BitArray:
-        r = BitArray()
-        r.bits[0] = a.bits[0] ^ b.bits[0]
-        m_a = a.bits[1:] + [0]*17
-        m_b = b.bits[1:]
-        rem = [0] * 31
-        q = []
-        for bit in m_a:
-            rem.pop(0)
-            rem.append(bit)
-            greater_eq = True
-            for i in range(31):
-                if rem[i] > m_b[i]: 
+    def divide_fixed(self, array_a: BitArray, array_b: BitArray) -> BitArray:
+        result_array = BitArray()
+        result_array.bits[0] = array_a.bits[0] ^ array_b.bits[0]
+        mantissa_a = array_a.bits[1:] + [0] * 17
+        mantissa_b = array_b.bits[1:]
+        remainder_bits = [0] * MAX_BITS_INDEX
+        quotient_bits = []
+        
+        for current_bit in mantissa_a:
+            remainder_bits.pop(0)
+            remainder_bits.append(current_bit)
+            is_greater_or_equal = True
+            
+            for bit_index in range(MAX_BITS_INDEX):
+                if remainder_bits[bit_index] > mantissa_b[bit_index]: 
                     break
-                if rem[i] < m_b[i]:
-                    greater_eq = False
+                if remainder_bits[bit_index] < mantissa_b[bit_index]:
+                    is_greater_or_equal = False
                     break
-            if greater_eq:
-                q.append(1)
-                c = 0
-                for i in range(30, -1, -1):
-                    diff = rem[i] - m_b[i] - c
-                    if diff < 0:
-                        rem[i] = diff + 2
-                        c = 1
-                    else:
-                        rem[i] = diff
-                        c = 0
-            else:
-                q.append(0)
-        for i in range(31):
-            if len(q) - 31 + i >= 0:
-                r.bits[1 + i] = q[len(q) - 31 + i]
-        return r
+                    
+            if is_greater_or_equal:
+                quotient_bits.append(1)
+                borrow_bit = 0
+                for bit_index
