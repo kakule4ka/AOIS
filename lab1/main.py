@@ -4,21 +4,26 @@ from src.float_arithmetic import IEEE754Arithmetic
 from src.bcd_arithmetic import Excess3BCDArithmetic
 from src.formatters import ResultFormatter
 
-def get_int(prompt, min_val=-2147483648, max_val=2147483647):
+MIN_INT_VALUE = -2147483648
+MAX_INT_VALUE = 2147483647
+MIN_BCD_VALUE = -9999999
+MAX_BCD_VALUE = 9999999
+
+def get_int(prompt_message, minimum_value=MIN_INT_VALUE, maximum_value=MAX_INT_VALUE):
     while True:
         try:
-            val = int(input(prompt))
-            if val < min_val or val > max_val:
-                print(f"Ошибка: число должно быть от {min_val} до {max_val}")
+            input_value = int(input(prompt_message))
+            if input_value < minimum_value or input_value > maximum_value:
+                print(f"Ошибка: число должно быть от {minimum_value} до {maximum_value}")
                 continue
-            return val
+            return input_value
         except ValueError:
             print("Ошибка: введите целое число")
 
-def get_float(prompt):
+def get_float(prompt_message):
     while True:
         try:
-            return float(input(prompt))
+            return float(input(prompt_message))
         except ValueError:
             print("Ошибка: введите вещественное число")
 
@@ -48,88 +53,89 @@ def main():
             break
 
         if choice == '1':
-            val = get_int("Введите целое число: ")
-            direct = converter.decimal_to_direct(val)
-            reverse = converter.decimal_to_reverse(val)
-            additional = converter.decimal_to_additional(val)
-            formatter.print_binary(direct, "Прямой код")
-            formatter.print_binary(reverse, "Обратный код")
-            formatter.print_binary(additional, "Дополнительный код")
+            input_value = get_int("Введите целое число: ")
+            direct_code = converter.decimal_to_direct(input_value)
+            reverse_code = converter.decimal_to_reverse(input_value)
+            additional_code = converter.decimal_to_additional(input_value)
+            formatter.print_binary(direct_code, "Прямой код")
+            formatter.print_binary(reverse_code, "Обратный код")
+            formatter.print_binary(additional_code, "Дополнительный код")
 
         elif choice == '2':
-            a = get_int("Введите первое слагаемое: ")
-            b = get_int("Введите второе слагаемое: ")
-            bit_a = converter.decimal_to_additional(a)
-            bit_b = converter.decimal_to_additional(b)
-            result = int_arithmetic.add_additional(bit_a, bit_b)
-            dec_result = converter.additional_to_decimal(result)
-            formatter.print_both(result, dec_result, "Результат сложения")
+            first_operand = get_int("Введите первое слагаемое: ")
+            second_operand = get_int("Введите второе слагаемое: ")
+            first_bit_array = converter.decimal_to_additional(first_operand)
+            second_bit_array = converter.decimal_to_additional(second_operand)
+            result_array = int_arithmetic.add_additional(first_bit_array, second_bit_array)
+            decimal_result = converter.additional_to_decimal(result_array)
+            formatter.print_both(result_array, decimal_result, "Результат сложения")
 
         elif choice == '3':
-            a = get_int("Введите уменьшаемое: ")
-            b = get_int("Введите вычитаемое: ")
-            bit_a = converter.decimal_to_additional(a)
-            bit_b = converter.decimal_to_additional(b)
-            result = int_arithmetic.subtract_additional(bit_a, bit_b)
-            dec_result = converter.additional_to_decimal(result)
-            formatter.print_both(result, dec_result, "Результат вычитания")
+            first_operand = get_int("Введите уменьшаемое: ")
+            second_operand = get_int("Введите вычитаемое: ")
+            first_bit_array = converter.decimal_to_additional(first_operand)
+            second_bit_array = converter.decimal_to_additional(second_operand)
+            result_array = int_arithmetic.subtract_additional(first_bit_array, second_bit_array)
+            decimal_result = converter.additional_to_decimal(result_array)
+            formatter.print_both(result_array, decimal_result, "Результат вычитания")
 
         elif choice == '4':
-            a = get_int("Введите первый множитель: ")
-            b = get_int("Введите второй множитель: ")
-            bit_a = converter.decimal_to_direct(a)
-            bit_b = converter.decimal_to_direct(b)
-            result = int_arithmetic.multiply_direct(bit_a, bit_b)
-            dec_result = converter.direct_to_decimal(result)
-            formatter.print_both(result, dec_result, "Результат умножения")
+            first_operand = get_int("Введите первый множитель: ")
+            second_operand = get_int("Введите второй множитель: ")
+            first_bit_array = converter.decimal_to_direct(first_operand)
+            second_bit_array = converter.decimal_to_direct(second_operand)
+            result_array = int_arithmetic.multiply_direct(first_bit_array, second_bit_array)
+            decimal_result = converter.direct_to_decimal(result_array)
+            formatter.print_both(result_array, decimal_result, "Результат умножения")
 
         elif choice == '5':
-            a = get_float("Введите делимое: ")
+            first_operand = get_float("Введите делимое: ")
             while True:
-                b = get_float("Введите делитель: ")
-                if b != 0:
+                second_operand = get_float("Введите делитель: ")
+                if second_operand != 0:
                     break
                 print("Ошибка: деление на ноль")
-            bit_a = converter.decimal_to_fixed(a)
-            bit_b = converter.decimal_to_fixed(b)
-            result = int_arithmetic.divide_fixed(bit_a, bit_b)
-            dec_result = converter.fixed_to_decimal(result)
-            formatter.print_both(result, dec_result, "Результат деления")
+            first_bit_array = converter.decimal_to_fixed(first_operand)
+            second_bit_array = converter.decimal_to_fixed(second_operand)
+            result_array = int_arithmetic.divide_fixed(first_bit_array, second_bit_array)
+            decimal_result = converter.fixed_to_decimal(result_array)
+            formatter.print_both(result_array, decimal_result, "Результат деления")
 
         elif choice == '6':
-            a = get_float("Введите первое число: ")
-            b = get_float("Введите второе число: ")
-            op = input("Выберите операцию (+, -, *, /): ")
-            if op == '/' and b == 0.0:
+            first_operand = get_float("Введите первое число: ")
+            second_operand = get_float("Введите второе число: ")
+            operator_symbol = input("Выберите операцию (+, -, *, /): ")
+            
+            if operator_symbol == '/' and second_operand == 0.0:
                 print("Ошибка: деление на ноль")
                 continue
             
-            bit_a = float_arithmetic.float_to_bits(a)
-            bit_b = float_arithmetic.float_to_bits(b)
+            first_bit_array = float_arithmetic.float_to_bits(first_operand)
+            second_bit_array = float_arithmetic.float_to_bits(second_operand)
             
-            if op == '+':
-                result = float_arithmetic.add(bit_a, bit_b)
-            elif op == '-':
-                result = float_arithmetic.subtract(bit_a, bit_b)
-            elif op == '*':
-                result = float_arithmetic.multiply(bit_a, bit_b)
-            elif op == '/':
-                result = float_arithmetic.divide(bit_a, bit_b)
+            if operator_symbol == '+':
+                result_array = float_arithmetic.add(first_bit_array, second_bit_array)
+            elif operator_symbol == '-':
+                result_array = float_arithmetic.subtract(first_bit_array, second_bit_array)
+            elif operator_symbol == '*':
+                result_array = float_arithmetic.multiply(first_bit_array, second_bit_array)
+            elif operator_symbol == '/':
+                result_array = float_arithmetic.divide(first_bit_array, second_bit_array)
             else:
                 print("Неизвестная операция")
                 continue
                 
-            dec_result = float_arithmetic.bits_to_float(result)
-            formatter.print_both(result, dec_result, f"Результат IEEE-754 ({op})")
+            decimal_result = float_arithmetic.bits_to_float(result_array)
+            formatter.print_both(result_array, decimal_result, f"Результат IEEE-754 ({operator_symbol})")
 
         elif choice == '7':
-            a = get_int("Введите первое слагаемое: ", -9999999, 9999999)
-            b = get_int("Введите второе слагаемое: ", -9999999, 9999999)
-            bit_a = bcd_arithmetic.decimal_to_excess3(a)
-            bit_b = bcd_arithmetic.decimal_to_excess3(b)
-            result = bcd_arithmetic.add(bit_a, bit_b)
-            dec_result = bcd_arithmetic.excess3_to_decimal(result)
-            formatter.print_both(result, dec_result, "Результат сложения Excess-3")
+            first_operand = get_int("Введите первое слагаемое: ", MIN_BCD_VALUE, MAX_BCD_VALUE)
+            second_operand = get_int("Введите второе слагаемое: ", MIN_BCD_VALUE, MAX_BCD_VALUE)
+            first_bit_array = bcd_arithmetic.decimal_to_excess3(first_operand)
+            second_bit_array = bcd_arithmetic.decimal_to_excess3(second_operand)
+            result_array = bcd_arithmetic.add(first_bit_array, second_bit_array)
+            decimal_result = bcd_arithmetic.excess3_to_decimal(result_array)
+            formatter.print_both(result_array, decimal_result, "Результат сложения Excess-3")
 
         else:
             print("Неверный ввод")
