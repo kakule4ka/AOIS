@@ -1,40 +1,35 @@
 class ZhegalkinPolynomial:
-    def __init__(self, truth_table_results: list, variables: list):
-        self.results = truth_table_results
+    def __init__(self, function_results, variables: list):
+        self.function_results = function_results
         self.variables = variables
-        self.coefficients = self._calculate_coefficients()
+        self.coefficients = self._calculate(function_results)
 
-    def _calculate_coefficients(self) -> list:
-        current_row = list(self.results)
-        coeffs = [current_row[0]]
+    def _calculate(self, raw_results) -> list:
+        current_row = [int(value) for value in raw_results]
+        calculated_coefficients = [current_row[0]]
         for _ in range(len(current_row) - 1):
-            next_row = []
-            for i in range(len(current_row) - 1):
-                next_row.append(current_row[i] ^ current_row[i+1])
-            coeffs.append(next_row[0])
-            current_row = next_row
-        return coeffs
+            next_calculated_row = [current_row[index] ^ current_row[index+1] for index in range(len(current_row) - 1)]
+            calculated_coefficients.append(next_calculated_row[0])
+            current_row = next_calculated_row
+        return calculated_coefficients
 
     def get_polynomial(self) -> str:
-        terms = []
-        n = len(self.variables)
-        for i, coeff in enumerate(self.coefficients):
-            if coeff:
-                if i == 0:
-                    terms.append("1")
+        polynomial_terms = []
+        variable_count = len(self.variables)
+        for index, coefficient in enumerate(self.coefficients):
+            if coefficient:
+                if index == 0:
+                    polynomial_terms.append("1")
                 else:
-                    bin_str = bin(i)[2:].zfill(n)
-                    term_vars = [self.variables[j] for j, bit in enumerate(bin_str) if bit == '1']
-                    terms.append("".join(term_vars))
-        if not terms:
+                    binary_representation = bin(index)[2:].zfill(variable_count)
+                    included_variables = [self.variables[bit_index] for bit_index, bit in enumerate(binary_representation) if bit == '1']
+                    polynomial_terms.append("".join(included_variables))
+        if not polynomial_terms:
             return "0"
-        return " ^ ".join(terms)
-        
+        return " ^ ".join(polynomial_terms)
+
     def is_linear(self) -> bool:
-        n = len(self.variables)
-        for i, coeff in enumerate(self.coefficients):
-            if coeff:
-                bin_str = bin(i)[2:].zfill(n)
-                if bin_str.count('1') > 1:
-                    return False
+        for index, coefficient in enumerate(self.coefficients):
+            if coefficient and bin(index).count('1') > 1:
+                return False
         return True

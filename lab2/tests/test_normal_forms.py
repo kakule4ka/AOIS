@@ -1,48 +1,39 @@
+# test_normal_forms.py
 import unittest
 from src.expr_parser import ExpressionParser
 from src.truth_table import TruthTable
 from src.normal_forms import NormalForms
 
-EXPR_XOR = "a ~ b"
-EXPR_TRUE = "a | !a"
-EXPR_FALSE = "a & !a"
-EXPECTED_SDNF = "(!a&!b) | (a&b)"
-EXPECTED_SKNF = "(a|!b) & (!a|b)"
-EXPECTED_SDNF_NUMBERS = [0, 3]
-EXPECTED_SKNF_NUMBERS = [1, 2]
-RESULT_ZERO = "0"
-RESULT_ONE = "1"
-
 class TestNormalForms(unittest.TestCase):
     def setUp(self):
         parser = ExpressionParser()
-        evaluator = parser.parse(EXPR_XOR)
+        evaluator = parser.parse("a ~ b")
         table = TruthTable(evaluator)
         self.nf = NormalForms(table)
 
     def test_get_sdnf_string(self):
-        self.assertEqual(self.nf.get_sdnf(), EXPECTED_SDNF)
+        self.assertEqual(self.nf.get_sdnf(), "(!a & !b) | (a & b)")
 
     def test_get_sknf_string(self):
-        self.assertEqual(self.nf.get_sknf(), EXPECTED_SKNF)
+        self.assertEqual(self.nf.get_sknf(), "(a | !b) & (!a | b)")
 
     def test_get_sdnf_numeric_format(self):
-        self.assertEqual(self.nf.get_sdnf_numeric(), EXPECTED_SDNF_NUMBERS)
+        self.assertEqual(self.nf.get_sdnf_numeric(), "[0, 3]")
 
     def test_get_sknf_numeric_format(self):
-        self.assertEqual(self.nf.get_sknf_numeric(), EXPECTED_SKNF_NUMBERS)
+        self.assertEqual(self.nf.get_sknf_numeric(), "[1, 2]")
 
     def test_sdnf_empty(self):
         parser = ExpressionParser()
-        table = TruthTable(parser.parse(EXPR_FALSE))
+        table = TruthTable(parser.parse("a & !a"))
         nf = NormalForms(table)
-        self.assertEqual(nf.get_sdnf(), RESULT_ZERO)
+        self.assertEqual(nf.get_sdnf(), "0")
 
     def test_sknf_empty(self):
         parser = ExpressionParser()
-        table = TruthTable(parser.parse(EXPR_TRUE))
+        table = TruthTable(parser.parse("a | !a"))
         nf = NormalForms(table)
-        self.assertEqual(nf.get_sknf(), RESULT_ONE)
+        self.assertEqual(nf.get_sknf(), "1")
 
 if __name__ == '__main__':
     unittest.main()

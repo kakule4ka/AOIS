@@ -1,31 +1,33 @@
 import itertools
-from .expr_parser import Evaluator
 
 class TruthTable:
-    def __init__(self, evaluator: Evaluator):
+    def __init__(self, evaluator):
         self.evaluator = evaluator
         self.variables = evaluator.variables
-        self.rows = []
-        self.results = []
-        self._generate()
+        self.table = self._generate()
 
     def _generate(self):
-        n = len(self.variables)
-        combinations = list(itertools.product([0, 1], repeat=n))
-        for combo in combinations:
-            val_dict = dict(zip(self.variables, combo))
-            res = self.evaluator.evaluate(val_dict)
-            self.rows.append(combo)
-            self.results.append(res)
+        generated_table = []
+        variable_count = len(self.variables)
+        for combination in itertools.product([0, 1], repeat=variable_count):
+            value_dictionary = dict(zip(self.variables, combination))
+            evaluation_result = self.evaluator.evaluate(value_dictionary)
+            generated_table.append((list(combination), evaluation_result))
+        return generated_table
 
-    def get_table(self) -> tuple:
-        return self.variables, self.rows, self.results
+    def get_on_set(self):
+        return [row[0] for row in self.table if row[1] == 1]
 
-    def get_on_set(self) -> list:
-        return [row for row, res in zip(self.rows, self.results) if res == 1]
+    def get_off_set(self):
+        return [row[0] for row in self.table if row[1] == 0]
 
-    def get_off_set(self) -> list:
-        return [row for row, res in zip(self.rows, self.results) if res == 0]
-    
-    def get_index_form(self) -> str:
-        return "".join(map(str, self.results))
+    def get_index_form(self):
+        return "".join(str(row[1]) for row in self.table)
+
+    def __str__(self):
+        header = "\t".join(self.variables) + "\t| f"
+        lines = [header, "-" * len(header.expandtabs(8))]
+        for row, evaluation_result in self.table:
+            formatted_line = "\t".join(map(str, row)) + f"\t| {evaluation_result}"
+            lines.append(formatted_line)
+        return "\n".join(lines)

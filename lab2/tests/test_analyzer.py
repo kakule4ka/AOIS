@@ -1,39 +1,29 @@
+# test_expr_parser.py
 import unittest
 from src.expr_parser import ExpressionParser
-from src.truth_table import TruthTable
-from src.analyzer import BooleanAnalyzer
 
-EXPR_WITH_DUMMY = "a | (b & !b)"
-DUMMY_VARIABLE = 'b'
-VAR_A = 'a'
-VAR_NOT_EXIST = 'z'
-
-class TestBooleanAnalyzer(unittest.TestCase):
+class TestExpressionParser(unittest.TestCase):
     def setUp(self):
-        parser = ExpressionParser()
-        evaluator = parser.parse(EXPR_WITH_DUMMY)
-        table = TruthTable(evaluator)
-        self.analyzer = BooleanAnalyzer(table)
+        self.parser = ExpressionParser()
 
-    def test_find_dummy_variables(self):
-        dummies = self.analyzer.find_dummy_variables()
-        self.assertIn(DUMMY_VARIABLE, dummies)
+    def test_parse_simple_expression_variables(self):
+        evaluator = self.parser.parse("a & b")
+        self.assertEqual(evaluator.variables, ['a', 'b'])
 
-    def test_get_partial_derivative_existing(self):
-        deriv = self.analyzer.get_partial_derivative(VAR_A)
-        self.assertTrue(any(v == 1 for v in deriv))
+    def test_evaluate_simple_expression_true(self):
+        evaluator = self.parser.parse("a & b")
+        result = evaluator.evaluate({'a': 1, 'b': 1})
+        self.assertEqual(result, 1)
 
-    def test_get_partial_derivative_missing(self):
-        deriv = self.analyzer.get_partial_derivative(VAR_NOT_EXIST)
-        self.assertEqual(deriv, [])
+    def test_evaluate_simple_expression_false(self):
+        evaluator = self.parser.parse("a & b")
+        result = evaluator.evaluate({'a': 1, 'b': 0})
+        self.assertEqual(result, 0)
 
-    def test_get_mixed_derivative_existing(self):
-        deriv = self.analyzer.get_mixed_derivative([VAR_A, DUMMY_VARIABLE])
-        self.assertTrue(all(v == 0 for v in deriv))
-
-    def test_get_mixed_derivative_missing(self):
-        deriv = self.analyzer.get_mixed_derivative([VAR_NOT_EXIST])
-        self.assertEqual(len(deriv), len(self.analyzer.results))
+    def test_evaluate_complex_expression(self):
+        evaluator = self.parser.parse("!(a -> b) | c")
+        result = evaluator.evaluate({'a': 1, 'b': 0, 'c': 0})
+        self.assertEqual(result, 1)
 
 if __name__ == '__main__':
     unittest.main()

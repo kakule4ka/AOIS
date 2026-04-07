@@ -1,62 +1,39 @@
-from .truth_table import TruthTable
+import itertools
 
 class BooleanAnalyzer:
-    def __init__(self, truth_table: TruthTable):
-        self.tt = truth_table
-        self.variables = truth_table.variables
-        self.results = truth_table.results
+    def __init__(self, evaluator, variables):
+        self.evaluator = evaluator
+        self.variables = variables
 
     def find_dummy_variables(self) -> list:
-        dummies = []
-        n = len(self.variables)
-        for i in range(n):
-            is_dummy = True
-            step = 1 << (n - 1 - i)
-            for j in range(0, 1 << n, step * 2):
-                for k in range(step):
-                    if self.results[j + k] != self.results[j + k + step]:
-                        is_dummy = False
-                        break
-                if not is_dummy:
-                    break
-            if is_dummy:
-                dummies.append(self.variables[i])
-        return dummies
+        dummy_variables = []
+        for variable in self.variables:
+            derivative = self.get_derivative(variable)
+            if all(character == '0' for character in derivative):
+                dummy_variables.append(variable)
+        return dummy_variables
 
-    def get_partial_derivative(self, var_name: str) -> list:
-        if var_name not in self.variables:
-            return []
-        var_index = self.variables.index(var_name)
-        n = len(self.variables)
-        derivative = [0] * (1 << n)
-        step = 1 << (n - 1 - var_index)
+    def get_derivative(self, target_variable: str) -> str:
+        if target_variable not in self.variables:
+            return ""
         
-        for j in range(0, 1 << n, step * 2):
-            for k in range(step):
-                val0 = self.results[j + k]
-                val1 = self.results[j + k + step]
-                diff = val0 ^ val1
-                derivative[j + k] = diff
-                derivative[j + k + step] = diff
-        return derivative
-
-    def get_mixed_derivative(self, var_names: list) -> list:
-        current_results = list(self.results)
-        n = len(self.variables)
+        other_variables = [variable for variable in self.variables if variable != target_variable]
+        derivative_results = []
         
-        for var_name in var_names:
-            if var_name not in self.variables:
-                continue
-            var_index = self.variables.index(var_name)
-            next_results = [0] * (1 << n)
-            step = 1 << (n - 1 - var_index)
+        for combination in itertools.product([0, 1], repeat=len(other_variables)):
+            combination_values = list(combination)
             
-            for j in range(0, 1 << n, step * 2):
-                for k in range(step):
-                    val0 = current_results[j + k]
-                    val1 = current_results[j + k + step]
-                    diff = val0 ^ val1
-                    next_results[j + k] = diff
-                    next_results[j + k + step] = diff
-            current_results = next_results
-        return current_results
+            context_false = dict(zip(other_variables, combination_values))
+            context_false[target_variable] = 0
+            
+            context_true = dict(zip(other_variables, combination_values))
+            context_true[target_variable] = 1
+            
+            eval_context_false = {variable: context_false[variable] for variable in self.variables}
+            eval_context_true = {variable: context_true[variable] for variable in self.variables}
+            
+            result_false = self.evaluator.evaluate(eval_context_false)
+            result_true = self.evaluator.evaluate(eval_context_true)
+            derivative_results.append(str(result_false ^ result_true))
+            
+        return "".join(derivative_results)
