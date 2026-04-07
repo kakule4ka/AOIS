@@ -1,13 +1,12 @@
-from src.bit_array import BitArray
+from .bit_array import BitArray
 
 class IEEE754Arithmetic:
     EXPONENT_BIAS = 127
-    EXPONENT_LENGTH = 8
-    MANTISSA_LENGTH = 23
-    MANTISSA_FULL_LENGTH = 24
-    MANTISSA_START_IDX = 9
+    EXPONENT_BITS = 8
+    MANTISSA_BITS = 23
+    MANTISSA_HIDDEN_LEN = 24
+    MANTISSA_START = 9
     TOTAL_BITS = 32
-    MAX_FRACTION_BITS = 150
 
     def float_to_bits(self, value: float) -> BitArray:
         result = BitArray()
@@ -15,236 +14,235 @@ class IEEE754Arithmetic:
             return result
             
         result.bits[0] = 1 if value < 0 else 0
-        value = abs(value)
+        absolute_value = abs(value)
         
-        integer_part = int(value)
-        fractional_part = value - integer_part
+        integer_part = int(absolute_value)
+        fractional_part = absolute_value - integer_part
         
-        integer_bits = []
+        int_binary = []
         while integer_part > 0:
-            integer_bits.append(integer_part % 2)
+            int_binary.append(integer_part % 2)
             integer_part //= 2
-        integer_bits.reverse()
+        int_binary.reverse()
         
-        fractional_bits = []
-        while fractional_part > 0 and len(fractional_bits) < self.MAX_FRACTION_BITS:
+        frac_binary = []
+        while fractional_part > 0 and len(frac_binary) < 150:
             fractional_part *= 2
             bit = int(fractional_part)
-            fractional_bits.append(bit)
+            frac_binary.append(bit)
             fractional_part -= bit
             
-        if len(integer_bits) > 0:
-            exponent = len(integer_bits) - 1
-            mantissa = integer_bits[1:] + fractional_bits
+        if int_binary:
+            exponent = len(int_binary) - 1
+            combined_mantissa = int_binary[1:] + frac_binary
         else:
             exponent = -1
-            for b in fractional_bits:
-                if b == 1:
+            for bit in frac_binary:
+                if bit == 1:
                     break
                 exponent -= 1
-            first_one_index = -exponent
-            mantissa = fractional_bits[first_one_index:] if first_one_index < len(fractional_bits) else []
+            normalization_shift = -exponent
+            combined_mantissa = frac_binary[normalization_shift:] if normalization_shift < len(frac_binary) else []
             
-        stored_exponent = exponent + self.EXPONENT_BIAS
-        for i in range(self.EXPONENT_LENGTH, 0, -1):
-            result.bits[i] = stored_exponent % 2
-            stored_exponent //= 2
+        biased_exponent = exponent + self.EXPONENT_BIAS
+        for index in range(self.EXPONENT_BITS, 0, -1):
+            result.bits[index] = biased_exponent % 2
+            biased_exponent //= 2
             
-        for i in range(min(self.MANTISSA_LENGTH, len(mantissa))):
-            result.bits[self.MANTISSA_START_IDX + i] = mantissa[i]
+        for index in range(min(self.MANTISSA_BITS, len(combined_mantissa))):
+            result.bits[self.MANTISSA_START + index] = combined_mantissa[index]
             
         return result
 
     def bits_to_float(self, bit_array: BitArray) -> float:
-        sign = -1 if bit_array.bits[0] == 1 else 1
+        sign_factor = -1 if bit_array.bits[0] == 1 else 1
         
-        exponent = 0
-        for i in range(1, self.EXPONENT_LENGTH + 1):
-            exponent = exponent * 2 + bit_array.bits[i]
+        exponent_value = 0
+        for index in range(1, self.EXPONENT_BITS + 1):
+            exponent_value = exponent_value * 2 + bit_array.bits[index]
             
-        if exponent == 0:
+        if exponent_value == 0:
             return 0.0
             
-        exponent -= self.EXPONENT_BIAS
-        mantissa = 1.0
-        power = 0.5
-        for i in range(self.MANTISSA_START_IDX, self.TOTAL_BITS):
-            mantissa += bit_array.bits[i] * power
-            power /= 2.0
+        unbiased_exponent = exponent_value - self.EXPONENT_BIAS
+        mantissa_sum = 1.0
+        weight = 0.5
+        for index in range(self.MANTISSA_START, self.TOTAL_BITS):
+            mantissa_sum += bit_array.bits[index] * weight
+            weight /= 2.0
             
-        return sign * mantissa * (2 ** exponent)
+        return sign_factor * mantissa_sum * (2 ** unbiased_exponent)
 
-    def _extract(self, bit_array: BitArray):
+    def _extract_components(self, bit_array: BitArray):
         sign = bit_array.bits[0]
         exponent = 0
-        for i in range(1, self.EXPONENT_LENGTH + 1):
-            exponent = exponent * 2 + bit_array.bits[i]
-        mantissa = [1] + bit_array.bits[self.MANTISSA_START_IDX:self.TOTAL_BITS] if exponent > 0 else [0] + bit_array.bits[self.MANTISSA_START_IDX:self.TOTAL_BITS]
+        for index in range(1, self.EXPONENT_BITS + 1):
+            exponent = exponent * 2 + bit_array.bits[index]
+        
+        if exponent > 0:
+            mantissa = [1] + bit_array.bits[self.MANTISSA_START:self.TOTAL_BITS]
+        else:
+            mantissa = [0] + bit_array.bits[self.MANTISSA_START:self.TOTAL_BITS]
+            
         return sign, exponent, mantissa
 
-    def _pack(self, sign: int, exponent: int, mantissa: list) -> BitArray:
+    def _construct_bit_array(self, sign: int, exponent: int, mantissa: list) -> BitArray:
         result = BitArray()
         result.bits[0] = sign
-        for i in range(self.EXPONENT_LENGTH, 0, -1):
-            result.bits[i] = exponent % 2
+        for index in range(self.EXPONENT_BITS, 0, -1):
+            result.bits[index] = exponent % 2
             exponent //= 2
-        for i in range(self.MANTISSA_LENGTH):
-            result.bits[self.MANTISSA_START_IDX + i] = mantissa[i + 1] if i + 1 < len(mantissa) else 0
+        for index in range(self.MANTISSA_BITS):
+            if index + 1 < len(mantissa):
+                result.bits[self.MANTISSA_START + index] = mantissa[index + 1]
         return result
 
-    def add(self, a: BitArray, b: BitArray) -> BitArray:
-        return self._add_sub(a, b, False)
+    def add(self, operand_a: BitArray, operand_b: BitArray) -> BitArray:
+        return self._perform_operation(operand_a, operand_b, False)
 
-    def subtract(self, a: BitArray, b: BitArray) -> BitArray:
-        return self._add_sub(a, b, True)
+    def subtract(self, operand_a: BitArray, operand_b: BitArray) -> BitArray:
+        return self._perform_operation(operand_a, operand_b, True)
 
-    def _add_sub(self, a: BitArray, b: BitArray, is_subtract: bool) -> BitArray:
-        sign1, exponent1, mantissa1 = self._extract(a)
-        sign2, exponent2, mantissa2 = self._extract(b)
+    def _perform_operation(self, a: BitArray, b: BitArray, is_sub: bool) -> BitArray:
+        s1, e1, m1 = self._extract_components(a)
+        s2, e2, m2 = self._extract_components(b)
         
-        if is_subtract:
-            sign2 = 1 - sign2
+        if is_sub:
+            s2 = 1 - s2
             
-        if exponent1 == 0:
-            return self._pack(sign2, exponent2, mantissa2)
-        if exponent2 == 0:
-            return self._pack(sign1, exponent1, mantissa1)
-            
-        if exponent1 < exponent2:
-            sign1, sign2 = sign2, sign1
-            exponent1, exponent2 = exponent2, exponent1
-            mantissa1, mantissa2 = mantissa2, mantissa1
-            
-        exponent_diff = exponent1 - exponent2
-        if exponent_diff > self.MANTISSA_FULL_LENGTH:
-            exponent_diff = self.MANTISSA_FULL_LENGTH
-        mantissa2 = [0] * exponent_diff + mantissa2[:self.MANTISSA_FULL_LENGTH - exponent_diff]
+        if e1 == 0: 
+            return self._construct_bit_array(s2, e2, m2)
+        if e2 == 0: 
+            return self._construct_bit_array(s1, e1, m1)
         
-        result_exponent = exponent1
-        result_mantissa_buffer = [0] * (self.MANTISSA_FULL_LENGTH + 1)
+        if e1 < e2:
+            s1, s2 = s2, s1
+            e1, e2 = e2, e1
+            m1, m2 = m2, m1
+            
+        diff = e1 - e2
+        if diff > self.MANTISSA_HIDDEN_LEN:
+            diff = self.MANTISSA_HIDDEN_LEN
+            
+        aligned_m2 = [0] * diff + m2[:self.MANTISSA_HIDDEN_LEN - diff]
         
-        if sign1 == sign2:
-            result_sign = sign1
+        res_exponent = e1
+        working_mantissa = [0] * (self.MANTISSA_HIDDEN_LEN + 1)
+        
+        if s1 == s2:
+            res_sign = s1
             carry = 0
-            for i in range(self.MANTISSA_LENGTH, -1, -1):
-                bit_sum = mantissa1[i] + mantissa2[i] + carry
-                result_mantissa_buffer[i + 1] = bit_sum % 2
-                carry = bit_sum // 2
-            result_mantissa_buffer[0] = carry
+            for index in range(self.MANTISSA_HIDDEN_LEN - 1, -1, -1):
+                total = m1[index] + aligned_m2[index] + carry
+                working_mantissa[index + 1] = total % 2
+                carry = total // 2
+            working_mantissa[0] = carry
             
-            if result_mantissa_buffer[0] == 1:
-                result_exponent += 1
-                result_mantissa = result_mantissa_buffer[0:self.MANTISSA_FULL_LENGTH]
+            if working_mantissa[0] == 1:
+                res_exponent += 1
+                final_mantissa = working_mantissa[0:self.MANTISSA_HIDDEN_LEN]
             else:
-                result_mantissa = result_mantissa_buffer[1:self.MANTISSA_FULL_LENGTH + 1]
+                final_mantissa = working_mantissa[1:self.MANTISSA_HIDDEN_LEN + 1]
         else:
+            res_sign = s1
             borrow = 0
-            for i in range(self.MANTISSA_LENGTH, -1, -1):
-                bit_diff = mantissa1[i] - mantissa2[i] - borrow
-                if bit_diff < 0:
-                    result_mantissa_buffer[i + 1] = bit_diff + 2
+            for index in range(self.MANTISSA_HIDDEN_LEN - 1, -1, -1):
+                delta = m1[index] - aligned_m2[index] - borrow
+                if delta < 0:
+                    working_mantissa[index + 1] = delta + 2
                     borrow = 1
                 else:
-                    result_mantissa_buffer[i + 1] = bit_diff
+                    working_mantissa[index + 1] = delta
                     borrow = 0
-            result_mantissa_buffer[0] = 0
-            result_sign = sign1
             
-            if borrow == 1:
-                result_sign = sign2
-                twos_complement_carry = 1
-                for i in range(self.MANTISSA_FULL_LENGTH, 0, -1):
-                    bit_sum = 1 - result_mantissa_buffer[i] + twos_complement_carry
-                    result_mantissa_buffer[i] = bit_sum % 2
-                    twos_complement_carry = bit_sum // 2
-                    
-            first_one_index = -1
-            for i in range(1, self.MANTISSA_FULL_LENGTH + 1):
-                if result_mantissa_buffer[i] == 1:
-                    first_one_index = i
+            first_bit = -1
+            for index in range(1, self.MANTISSA_HIDDEN_LEN + 1):
+                if working_mantissa[index] == 1:
+                    first_bit = index
                     break
-                    
-            if first_one_index == -1:
-                return BitArray()
-                
-            shift_amount = first_one_index - 1
-            result_exponent -= shift_amount
-            result_mantissa = result_mantissa_buffer[first_one_index:] + [0] * shift_amount
             
-        return self._pack(result_sign, result_exponent, result_mantissa)
+            if first_bit == -1: 
+                return BitArray()
+            
+            shift = first_bit - 1
+            res_exponent -= shift
+            final_mantissa = working_mantissa[first_bit:] + [0] * shift
+            
+        return self._construct_bit_array(res_sign, res_exponent, final_mantissa)
 
     def multiply(self, a: BitArray, b: BitArray) -> BitArray:
-        sign1, exponent1, mantissa1 = self._extract(a)
-        sign2, exponent2, mantissa2 = self._extract(b)
+        s1, e1, m1 = self._extract_components(a)
+        s2, e2, m2 = self._extract_components(b)
         
-        result_sign = sign1 ^ sign2
-        if exponent1 == 0 or exponent2 == 0:
-            return self._pack(result_sign, 0, [0] * self.MANTISSA_FULL_LENGTH)
+        res_sign = s1 ^ s2
+        if e1 == 0 or e2 == 0:
+            return self._construct_bit_array(res_sign, 0, [0] * self.MANTISSA_HIDDEN_LEN)
             
-        result_exponent = exponent1 + exponent2 - self.EXPONENT_BIAS
-        result_mantissa_buffer = [0] * (self.MANTISSA_FULL_LENGTH * 2)
+        res_exponent = e1 + e2 - self.EXPONENT_BIAS
+        buffer = [0] * (self.MANTISSA_HIDDEN_LEN * 2)
         
-        for i in range(self.MANTISSA_LENGTH, -1, -1):
-            if mantissa2[i] == 1:
+        for index_b in range(self.MANTISSA_HIDDEN_LEN - 1, -1, -1):
+            if m2[index_b] == 1:
                 carry = 0
-                for j in range(self.MANTISSA_LENGTH, -1, -1):
-                    bit_sum = result_mantissa_buffer[i + j + 1] + mantissa1[j] + carry
-                    result_mantissa_buffer[i + j + 1] = bit_sum % 2
-                    carry = bit_sum // 2
-                result_mantissa_buffer[i] += carry
+                for index_a in range(self.MANTISSA_HIDDEN_LEN - 1, -1, -1):
+                    pos = index_b + index_a + 1
+                    total = buffer[pos] + m1[index_a] + carry
+                    buffer[pos] = total % 2
+                    carry = total // 2
+                buffer[index_b] += carry
                 
-        if result_mantissa_buffer[0] == 1:
-            result_exponent += 1
-            result_mantissa = result_mantissa_buffer[0:self.MANTISSA_FULL_LENGTH]
+        if buffer[0] == 1:
+            res_exponent += 1
+            final_mantissa = buffer[0:self.MANTISSA_HIDDEN_LEN]
         else:
-            result_mantissa = result_mantissa_buffer[1:self.MANTISSA_FULL_LENGTH + 1]
+            final_mantissa = buffer[1:self.MANTISSA_HIDDEN_LEN + 1]
             
-        return self._pack(result_sign, result_exponent, result_mantissa)
+        return self._construct_bit_array(res_sign, res_exponent, final_mantissa)
 
     def divide(self, a: BitArray, b: BitArray) -> BitArray:
-        sign1, exponent1, mantissa1 = self._extract(a)
-        sign2, exponent2, mantissa2 = self._extract(b)
+        s1, e1, m1 = self._extract_components(a)
+        s2, e2, m2 = self._extract_components(b)
         
-        result_sign = sign1 ^ sign2
-        if exponent2 == 0:
+        res_sign = s1 ^ s2
+        if e2 == 0: 
             return BitArray()
-        if exponent1 == 0:
-            return self._pack(result_sign, 0, [0] * self.MANTISSA_FULL_LENGTH)
-            
-        result_exponent = exponent1 - exponent2 + self.EXPONENT_BIAS
-        buffer_length = self.MANTISSA_FULL_LENGTH + 1
-        remainder = mantissa1 + [0] * buffer_length
-        quotient_bits = []
+        if e1 == 0: 
+            return self._construct_bit_array(res_sign, 0, [0] * self.MANTISSA_HIDDEN_LEN)
         
-        for _ in range(buffer_length):
-            is_greater_or_equal = True
-            for i in range(self.MANTISSA_FULL_LENGTH):
-                if remainder[i] > mantissa2[i]:
+        res_exponent = e1 - e2 + self.EXPONENT_BIAS
+        register_len = self.MANTISSA_HIDDEN_LEN + 1
+        remainder = m1 + [0] * register_len
+        quotient = []
+        
+        for _ in range(register_len):
+            ge = True
+            for index in range(self.MANTISSA_HIDDEN_LEN):
+                if remainder[index] > m2[index]: 
                     break
-                if remainder[i] < mantissa2[i]:
-                    is_greater_or_equal = False
+                if remainder[index] < m2[index]:
+                    ge = False
                     break
-                    
-            if is_greater_or_equal:
-                quotient_bits.append(1)
+            
+            if ge:
+                quotient.append(1)
                 borrow = 0
-                for i in range(self.MANTISSA_LENGTH, -1, -1):
-                    bit_diff = remainder[i] - mantissa2[i] - borrow
-                    if bit_diff < 0:
-                        remainder[i] = bit_diff + 2
+                for index in range(self.MANTISSA_HIDDEN_LEN - 1, -1, -1):
+                    delta = remainder[index] - m2[index] - borrow
+                    if delta < 0:
+                        remainder[index] = delta + 2
                         borrow = 1
                     else:
-                        remainder[i] = bit_diff
+                        remainder[index] = delta
                         borrow = 0
             else:
-                quotient_bits.append(0)
+                quotient.append(0)
             remainder.pop(0)
             remainder.append(0)
             
-        if quotient_bits[0] == 1:
-            result_mantissa = quotient_bits[0:self.MANTISSA_FULL_LENGTH]
+        if quotient[0] == 1:
+            final_mantissa = quotient[0:self.MANTISSA_HIDDEN_LEN]
         else:
-            result_exponent -= 1
-            result_mantissa = quotient_bits[1:buffer_length]
+            res_exponent -= 1
+            final_mantissa = quotient[1:register_len]
             
-        return self._pack(result_sign, result_exponent, result_mantissa)
+        return self._construct_bit_array(res_sign, res_exponent, final_mantissa)

@@ -1,4 +1,5 @@
 class BitArray:
+    SIZE = 32
+
     def __init__(self):
-        array_size = 32
-        self.bits = [0] * array_size
+        self.bits = [0] * self.SIZE

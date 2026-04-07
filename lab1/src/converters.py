@@ -1,125 +1,116 @@
 from src.bit_array import BitArray
 
 class NumberConverter:
+    BIT_LIMIT = 32
+    SIGN_INDEX = 0
+    INTEGER_PART_LIMIT = 14
+
     def decimal_to_direct(self, decimal_value: int) -> BitArray:
         result = BitArray()
-        result.bits[0] = 1 if decimal_value < 0 else 0
+        result.bits[self.SIGN_INDEX] = 1 if decimal_value < 0 else 0
         absolute_value = abs(int(decimal_value))
-        last_index = 31
         
-        for i in range(last_index, 0, -1):
-            result.bits[i] = absolute_value % 2
+        for index in range(self.BIT_LIMIT - 1, 0, -1):
+            result.bits[index] = absolute_value % 2
             absolute_value //= 2
             
         return result
 
     def decimal_to_reverse(self, decimal_value: int) -> BitArray:
         result = self.decimal_to_direct(decimal_value)
-        total_bits = 32
         
         if decimal_value < 0:
-            for i in range(1, total_bits):
-                result.bits[i] = 1 - result.bits[i]
+            for index in range(1, self.BIT_LIMIT):
+                result.bits[index] = 1 - result.bits[index]
                 
         return result
 
     def decimal_to_additional(self, decimal_value: int) -> BitArray:
-        min_negative_value = -2147483648
+        min_int_32 = -2147483648
         
-        if decimal_value == min_negative_value:
+        if decimal_value == min_int_32:
             result = BitArray()
-            result.bits[0] = 1
+            result.bits[self.SIGN_INDEX] = 1
             return result
             
         result = self.decimal_to_reverse(decimal_value)
-        last_index = 31
         
         if decimal_value < 0:
             carry = 1
-            for i in range(last_index, 0, -1):
-                current_sum = result.bits[i] + carry
-                result.bits[i] = current_sum % 2
+            for index in range(self.BIT_LIMIT - 1, 0, -1):
+                current_sum = result.bits[index] + carry
+                result.bits[index] = current_sum % 2
                 carry = current_sum // 2
                 
         return result
 
     def direct_to_decimal(self, bit_array: BitArray) -> int:
-        decimal_value = 0
-        total_bits = 32
+        decimal_magnitude = 0
         
-        for i in range(1, total_bits):
-            decimal_value = decimal_value * 2 + bit_array.bits[i]
+        for index in range(1, self.BIT_LIMIT):
+            decimal_magnitude = decimal_magnitude * 2 + bit_array.bits[index]
             
-        return -decimal_value if bit_array.bits[0] == 1 else decimal_value
+        return -decimal_magnitude if bit_array.bits[self.SIGN_INDEX] == 1 else decimal_magnitude
 
     def additional_to_decimal(self, bit_array: BitArray) -> int:
-        total_bits = 32
-        last_index = 31
-        min_negative_pattern = [1] + [0] * last_index
-        min_negative_value = -2147483648
-        
-        if bit_array.bits == min_negative_pattern:
-            return min_negative_value
+        min_pattern = [1] + [0] * 31
+        if bit_array.bits == min_pattern:
+            return -2147483648
             
-        is_negative = bit_array.bits[0] == 1
-        temp_bits = bit_array.bits.copy()
+        is_negative = bit_array.bits[self.SIGN_INDEX] == 1
+        bits_working_copy = bit_array.bits.copy()
         
         if is_negative:
             borrow = 1
-            for i in range(last_index, 0, -1):
-                difference = temp_bits[i] - borrow
+            for index in range(self.BIT_LIMIT - 1, 0, -1):
+                difference = bits_working_copy[index] - borrow
                 if difference < 0:
-                    temp_bits[i] = 1
+                    bits_working_copy[index] = 1
                     borrow = 1
                 else:
-                    temp_bits[i] = difference
+                    bits_working_copy[index] = difference
                     borrow = 0
-            for i in range(1, total_bits):
-                temp_bits[i] = 1 - temp_bits[i]
+            for index in range(1, self.BIT_LIMIT):
+                bits_working_copy[index] = 1 - bits_working_copy[index]
                 
         decimal_value = 0
-        for i in range(1, total_bits):
-            decimal_value = decimal_value * 2 + temp_bits[i]
+        for index in range(1, self.BIT_LIMIT):
+            decimal_value = decimal_value * 2 + bits_working_copy[index]
             
         return -decimal_value if is_negative else decimal_value
 
     def decimal_to_fixed(self, float_value: float) -> BitArray:
         result = BitArray()
-        result.bits[0] = 1 if float_value < 0 else 0
+        result.bits[self.SIGN_INDEX] = 1 if float_value < 0 else 0
         absolute_value = abs(float_value)
         
         integer_part = int(absolute_value)
         fractional_part = absolute_value - integer_part
         
-        integer_bits_count = 14
-        total_bits = 32
-        fractional_start_index = integer_bits_count + 1
+        fractional_start_index = self.INTEGER_PART_LIMIT + 1
         
-        for i in range(integer_bits_count, 0, -1):
-            result.bits[i] = integer_part % 2
+        for index in range(self.INTEGER_PART_LIMIT, 0, -1):
+            result.bits[index] = integer_part % 2
             integer_part //= 2
             
-        for i in range(fractional_start_index, total_bits):
+        for index in range(fractional_start_index, self.BIT_LIMIT):
             fractional_part *= 2
-            result.bits[i] = int(fractional_part)
+            result.bits[index] = int(fractional_part)
             fractional_part -= int(fractional_part)
             
         return result
 
     def fixed_to_decimal(self, bit_array: BitArray) -> float:
-        integer_part = 0
-        integer_bits_count = 14
-        total_bits = 32
-        fractional_start_index = integer_bits_count + 1
-        precision_digits = 5
+        integer_accumulator = 0
+        fractional_accumulator = 0
+        fractional_start_index = self.INTEGER_PART_LIMIT + 1
         
-        for i in range(1, integer_bits_count + 1):
-            integer_part = integer_part * 2 + bit_array.bits[i]
+        for index in range(1, self.INTEGER_PART_LIMIT + 1):
+            integer_accumulator = integer_accumulator * 2 + bit_array.bits[index]
             
-        fractional_part = 0
-        for i in range(fractional_start_index, total_bits):
-            power = i - integer_bits_count
-            fractional_part += bit_array.bits[i] * (2 ** -power)
+        for index in range(fractional_start_index, self.BIT_LIMIT):
+            exponent = index - self.INTEGER_PART_LIMIT
+            fractional_accumulator += bit_array.bits[index] * (2 ** -exponent)
             
-        result_value = round(integer_part + fractional_part, precision_digits)
-        return -result_value if bit_array.bits[0] == 1 else result_value
+        result_value = round(integer_accumulator + fractional_accumulator, 5)
+        return -result_value if bit_array.bits[self.SIGN_INDEX] == 1 else result_value

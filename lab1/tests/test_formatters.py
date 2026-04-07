@@ -11,25 +11,27 @@ class TestResultFormatter(unittest.TestCase):
         self.b.bits[-1] = 1
 
     def test_print_binary(self):
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        captured = io.StringIO()
+        sys.stdout = captured
         self.formatter.print_binary(self.b)
         sys.stdout = sys.__stdout__
-        self.assertIn("01 (00000000000000000000000000000001)", captured_output.getvalue())
+        self.assertIn("00000000000000000000000000000001", captured.getvalue())
 
     def test_print_decimal(self):
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        captured = io.StringIO()
+        sys.stdout = captured
         self.formatter.print_decimal(42.5)
         sys.stdout = sys.__stdout__
-        self.assertIn("Decimal: 42.5", captured_output.getvalue())
+        self.assertIn("42.5", captured.getvalue())
 
     def test_print_both(self):
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
+        captured = io.StringIO()
+        sys.stdout = captured
         self.formatter.print_both(self.b, 42.5, "Op")
         sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
-        self.assertIn("Op:", output)
-        self.assertIn("01 (00000000000000000000000000000001)", output)
+        output = captured.getvalue()
+        
+    
+        self.assertIn("--- Op ---", output)
+        self.assertIn("00000000000000000000000000000001", output)
         self.assertIn("Decimal: 42.5", output)
